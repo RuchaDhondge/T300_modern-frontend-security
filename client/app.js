@@ -2,6 +2,12 @@ const app = document.getElementById("app");
 
 const params = new URLSearchParams(window.location.search);
 
+const allowedSettings = {
+    theme: new Set(["light", "dark"]),
+    language: new Set(["en", "fr"]),
+    fontSize: new Set(["small", "medium", "large"])
+};
+
 const username =
     params.get("name") ||
     window.initialUser?.name ||
@@ -37,10 +43,17 @@ addProfileField(
 app.replaceChildren(profile);
 
 function prepareSettings(userSettings) {
-    const settings = {};
+    const settings = Object.create(null);
 
-    for (const key in userSettings) {
-        settings[key] = userSettings[key];
+    for (const [key, value] of Object.entries(userSettings)) {
+        if (
+            !Object.hasOwn(allowedSettings, key) ||
+            !allowedSettings[key].has(value)
+        ) {
+            throw new Error(`Invalid setting: ${key}`);
+        }
+
+        settings[key] = value;
     }
 
     return settings;
@@ -70,9 +83,14 @@ saveButton.addEventListener("click", async () => {
 
         const result = await response.json();
 
+        if (!response.ok) {
+            throw new Error(result.error || "Settings request failed.");
+        }
+
         document.getElementById("settings-status").textContent =
             result.message;
     } catch (error) {
+        console.error("Unable to save settings.", error);
         document.getElementById("settings-status").textContent =
             "Unable to save settings.";
     }

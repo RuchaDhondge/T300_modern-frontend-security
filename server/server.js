@@ -6,7 +6,59 @@ const { user, defaultSettings } = require("./data");
 const app = express();
 const PORT = 3000;
 
+const allowedSettings = {
+    theme: new Set(["light", "dark"]),
+    language: new Set(["en", "fr"]),
+    fontSize: new Set(["small", "medium", "large"])
+};
+
+const forbiddenPropertyNames = new Set([
+    "__proto__",
+    "constructor",
+    "prototype"
+]);
+
 app.use(express.json());
+
+function validateSettings(input) {
+    if (
+        input === null ||
+        typeof input !== "object" ||
+        Array.isArray(input)
+    ) {
+        return {
+            error: "Settings must be a JSON object."
+        };
+    }
+
+    const settings = Object.create(null);
+
+    for (const [key, value] of Object.entries(input)) {
+        if (forbiddenPropertyNames.has(key)) {
+            return {
+                error: `Setting "${key}" is not allowed.`
+            };
+        }
+
+        if (!Object.hasOwn(allowedSettings, key)) {
+            return {
+                error: `Unknown setting "${key}".`
+            };
+        }
+
+        if (!allowedSettings[key].has(value)) {
+            return {
+                error: `Invalid value for setting "${key}".`
+            };
+        }
+
+        settings[key] = value;
+    }
+
+    return {
+        settings
+    };
+}
 
 /*
  * Home page
@@ -100,17 +152,17 @@ app.get("/api/settings", (req, res) => {
 });
 
 app.post("/api/settings", (req, res) => {
-    const incomingSettings = req.body;
+    const result = validateSettings(req.body);
 
-    const settings = {};
-
-    for (const key in incomingSettings) {
-        settings[key] = incomingSettings[key];
+    if (result.error) {
+        return res.status(400).json({
+            error: result.error
+        });
     }
 
-    res.json({
+    return res.json({
         message: "Settings saved successfully.",
-        settings
+        settings: result.settings
     });
 });
 
@@ -199,6 +251,16 @@ app.get("/account", (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, "..", "client")));
+
+app.use((error, req, res, next) => {
+    if (error instanceof SyntaxError && error.status === 400) {
+        return res.status(400).json({
+            error: "Request body must contain valid JSON."
+        });
+    }
+
+    return next(error);
+});
 
 app.listen(PORT, () => {
     console.log(`Application running at http://localhost:${PORT}`);
