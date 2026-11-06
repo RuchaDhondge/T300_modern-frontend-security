@@ -8,11 +8,6 @@ const allowedSettings = {
     fontSize: new Set(["small", "medium", "large"])
 };
 
-const username =
-    params.get("name") ||
-    window.initialUser?.name ||
-    "Guest";
-
 function addProfileField(container, label, value) {
     const paragraph = document.createElement("p");
     const strong = document.createElement("strong");
@@ -22,25 +17,35 @@ function addProfileField(container, label, value) {
     container.appendChild(paragraph);
 }
 
-const profile = document.createElement("section");
-const heading = document.createElement("h2");
+function renderProfile(user) {
+    const profile = document.createElement("section");
+    const heading = document.createElement("h2");
+    const username = params.get("name") || user.name || "Guest";
 
-profile.className = "profile-card";
-heading.textContent = `Welcome, ${username}`;
-profile.appendChild(heading);
+    profile.className = "profile-card";
+    heading.textContent = `Welcome, ${username}`;
+    profile.appendChild(heading);
 
-addProfileField(
-    profile,
-    "Email",
-    window.initialUser?.email || "Unknown"
-);
-addProfileField(
-    profile,
-    "Role",
-    window.initialUser?.role || "User"
-);
+    addProfileField(profile, "Email", user.email || "Unknown");
+    addProfileField(profile, "Role", user.role || "User");
 
-app.replaceChildren(profile);
+    app.replaceChildren(profile);
+}
+
+async function loadProfile() {
+    try {
+        const response = await fetch("/api/profile");
+
+        if (!response.ok) {
+            throw new Error(`Profile request failed with ${response.status}`);
+        }
+
+        renderProfile(await response.json());
+    } catch (error) {
+        console.error("Unable to load profile.", error);
+        app.textContent = "Unable to load profile.";
+    }
+}
 
 function prepareSettings(userSettings) {
     const settings = Object.create(null);
@@ -58,6 +63,8 @@ function prepareSettings(userSettings) {
 
     return settings;
 }
+
+loadProfile();
 
 const saveButton = document.getElementById("save-settings");
 

@@ -20,6 +20,15 @@ const forbiddenPropertyNames = new Set([
 
 app.use(express.json());
 
+function toClientUser(serverUser) {
+    return {
+        id: serverUser.id,
+        name: serverUser.name,
+        email: serverUser.email,
+        role: serverUser.role
+    };
+}
+
 function validateSettings(input) {
     if (
         input === null ||
@@ -64,8 +73,6 @@ function validateSettings(input) {
  * Home page
  */
 app.get("/", (req, res) => {
-    const initialUserData = JSON.stringify(user);
-
     res.send(`
         <!DOCTYPE html>
         <html lang="en">
@@ -127,11 +134,7 @@ app.get("/", (req, res) => {
                 </section>
             </main>
 
-            <script>
-                window.initialUser = ${initialUserData};
-            </script>
-
-            <script src="/app.js"></script>
+            <script src="/app.js" defer></script>
         </body>
         </html>
     `);
@@ -141,7 +144,7 @@ app.get("/", (req, res) => {
  * Profile API
  */
 app.get("/api/profile", (req, res) => {
-    res.json(user);
+    res.json(toClientUser(user));
 });
 
 /*
