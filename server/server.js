@@ -15,7 +15,8 @@ const contentSecurityPolicy = [
     "font-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'"
+    "form-action 'self'",
+    "frame-ancestors 'none'"
 ].join("; ");
 
 const allowedSettings = {
@@ -32,6 +33,7 @@ const forbiddenPropertyNames = new Set([
 
 app.use((req, res, next) => {
     res.setHeader("Content-Security-Policy", contentSecurityPolicy);
+    res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
     next();
