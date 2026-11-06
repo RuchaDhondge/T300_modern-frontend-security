@@ -1,0 +1,60 @@
+Part A: Hands-On Security Code Review
+
+Finding 1: location.hash - Untrusted URL Data
+The URL fragment is attacker-controlled browser input and must not be trusted.
+
+Finding 2: location.hash.substring(1) - Missing Validation
+Removing the leading hash character does not validate or sanitize the value.
+
+Finding 3: innerHTML - Dangerous HTML Sink
+innerHTML interprets its input as markup rather than displaying it as text.
+
+Finding 4: location.hash to innerHTML - DOM-Based XSS
+Attacker-controlled URL data flows directly into an HTML-interpreting sink and may execute
+malicious markup or JavaScript in the application's origin.
+
+Finding 5: document.querySelector("#result") - Unchecked DOM Lookup
+If the expected element is absent, the null dereference stops script execution and can affect
+application availability.
+
+Finding 6: localStorage.getItem("config") - Untrusted Browser Storage
+Any script executing in the origin can modify localStorage, so stored configuration must be
+treated as untrusted input.
+
+Finding 7: JSON.parse(...) - Unhandled Invalid Input
+Malformed stored JSON throws an exception and can prevent the remaining application code from
+running.
+
+Finding 8: Object.assign(config, untrustedData) - Unsafe Object Merge
+The operation copies every attacker-controlled property without checking whether the
+application supports that property.
+
+Finding 9: __proto__, constructor, and prototype - Prototype Manipulation
+Special property names can alter object behavior or interact with vulnerable downstream merge
+logic.
+
+Finding 10: Configuration Assignment - Missing Allowlist and Type Validation
+Supported keys and values are not defined, allowing unexpected configuration properties and
+types.
+
+Finding 11: config = {} - Inherited Properties
+A normal object inherits from Object.prototype, which is risky for dictionary-like data and
+security checks that accept inherited values.
+
+Finding 12: getUser() - Unreviewed Trust Boundary
+Data returned from an API, database, or external service must be validated before use.
+
+Finding 13: renderClient({ user }) - SSR Token or Secret Leakage
+Passing the complete user object across the server-to-browser boundary may serialize access
+tokens, refresh tokens, session identifiers, or internal fields into browser-accessible data.
+
+Finding 14: Complete User Object - Missing Data Minimization
+The client should receive an explicit DTO containing only fields required for display.
+
+Finding 15: Browser-Accessible User Data - Increased XSS Impact
+Any sensitive field sent to client-side JavaScript could be read by injected same-origin
+JavaScript.
+
+Finding 16: Security Headers - Not Verifiable From the Snippet
+The code does not show whether a restrictive Content Security Policy or clickjacking headers
+are returned. These controls must be verified in the HTTP response configuration.
