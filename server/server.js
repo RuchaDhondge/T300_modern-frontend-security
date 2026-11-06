@@ -6,14 +6,103 @@ const { user, defaultSettings } = require("./data");
 const app = express();
 const PORT = 3000;
 
+const contentSecurityPolicy = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'"
+].join("; ");
+
+const allowedSettings = {
+    theme: new Set(["light", "dark"]),
+    language: new Set(["en", "fr"]),
+    fontSize: new Set(["small", "medium", "large"])
+};
+
+const forbiddenPropertyNames = new Set([
+    "__proto__",
+    "constructor",
+    "prototype"
+]);
+
+app.use((req, res, next) => {
+    res.setHeader("Content-Security-Policy", contentSecurityPolicy);
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+});
+
 app.use(express.json());
+
+function toClientUser(serverUser) {
+    return {
+        id: serverUser.id,
+        name: serverUser.name,
+        email: serverUser.email,
+        role: serverUser.role
+    };
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function validateSettings(input) {
+    if (
+        input === null ||
+        typeof input !== "object" ||
+        Array.isArray(input)
+    ) {
+        return {
+            error: "Settings must be a JSON object."
+        };
+    }
+
+    const settings = Object.create(null);
+
+    for (const [key, value] of Object.entries(input)) {
+        if (forbiddenPropertyNames.has(key)) {
+            return {
+                error: `Setting "${key}" is not allowed.`
+            };
+        }
+
+        if (!Object.hasOwn(allowedSettings, key)) {
+            return {
+                error: `Unknown setting "${key}".`
+            };
+        }
+
+        if (!allowedSettings[key].has(value)) {
+            return {
+                error: `Invalid value for setting "${key}".`
+            };
+        }
+
+        settings[key] = value;
+    }
+
+    return {
+        settings
+    };
+}
 
 /*
  * Home page
  */
 app.get("/", (req, res) => {
-    const initialUserData = JSON.stringify(user);
-
     res.send(`
         <!DOCTYPE html>
         <html lang="en">
@@ -75,11 +164,7 @@ app.get("/", (req, res) => {
                 </section>
             </main>
 
-            <script>
-                window.initialUser = ${initialUserData};
-            </script>
-
-            <script src="/app.js"></script>
+            <script src="/app.js" defer></script>
         </body>
         </html>
     `);
@@ -89,7 +174,7 @@ app.get("/", (req, res) => {
  * Profile API
  */
 app.get("/api/profile", (req, res) => {
-    res.json(user);
+    res.json(toClientUser(user));
 });
 
 /*
@@ -100,17 +185,17 @@ app.get("/api/settings", (req, res) => {
 });
 
 app.post("/api/settings", (req, res) => {
-    const incomingSettings = req.body;
+    const result = validateSettings(req.body);
 
-    const settings = {};
-
-    for (const key in incomingSettings) {
-        settings[key] = incomingSettings[key];
+    if (result.error) {
+        return res.status(400).json({
+            error: result.error
+        });
     }
 
-    res.json({
+    return res.json({
         message: "Settings saved successfully.",
-        settings
+        settings: result.settings
     });
 });
 
@@ -128,51 +213,26 @@ app.get("/account", (req, res) => {
                 content="width=device-width, initial-scale=1.0"
             >
             <title>Account Settings</title>
-
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background: #f4f4f4;
-                    margin: 0;
-                    padding: 40px;
-                }
-
-                .account-card {
-                    max-width: 600px;
-                    margin: auto;
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                }
-
-                .danger {
-                    background: #c62828;
-                    color: white;
-                    border: none;
-                    padding: 12px 20px;
-                    cursor: pointer;
-                    border-radius: 4px;
-                }
-            </style>
+            <link rel="stylesheet" href="/styles.css">
         </head>
 
-        <body>
+        <body class="account-page">
             <div class="account-card">
                 <h1>Account Settings</h1>
 
                 <p>
                     <strong>Name:</strong>
-                    ${user.name}
+                    ${escapeHtml(user.name)}
                 </p>
 
                 <p>
                     <strong>Email:</strong>
-                    ${user.email}
+                    ${escapeHtml(user.email)}
                 </p>
 
                 <p>
                     <strong>Role:</strong>
-                    ${user.role}
+                    ${escapeHtml(user.role)}
                 </p>
 
                 <button
@@ -185,20 +245,23 @@ app.get("/account", (req, res) => {
                 <p id="status"></p>
             </div>
 
-            <script>
-                document
-                    .getElementById("delete-account")
-                    .addEventListener("click", () => {
-                        document.getElementById("status").textContent =
-                            "Account deletion action triggered.";
-                    });
-            </script>
+            <script src="/account.js" defer></script>
         </body>
         </html>
     `);
 });
 
 app.use(express.static(path.join(__dirname, "..", "client")));
+
+app.use((error, req, res, next) => {
+    if (error instanceof SyntaxError && error.status === 400) {
+        return res.status(400).json({
+            error: "Request body must contain valid JSON."
+        });
+    }
+
+    return next(error);
+});
 
 app.listen(PORT, () => {
     console.log(`Application running at http://localhost:${PORT}`);

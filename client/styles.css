@@ -82,3 +82,19 @@ button:hover {
     margin-top: 15px;
     font-weight: bold;
 }
+
+.account-page {
+    padding: 40px;
+}
+
+.account-card {
+    max-width: 600px;
+    margin: auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+}
+
+.danger {
+    background: #c62828;
+}
