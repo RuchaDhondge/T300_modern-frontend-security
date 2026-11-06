@@ -7,21 +7,34 @@ const username =
     window.initialUser?.name ||
     "Guest";
 
-app.innerHTML = `
-    <section class="profile-card">
-        <h2>Welcome, ${username}</h2>
+function addProfileField(container, label, value) {
+    const paragraph = document.createElement("p");
+    const strong = document.createElement("strong");
 
-        <p>
-            Email:
-            ${window.initialUser?.email || "Unknown"}
-        </p>
+    strong.textContent = `${label}: `;
+    paragraph.append(strong, document.createTextNode(value));
+    container.appendChild(paragraph);
+}
 
-        <p>
-            Role:
-            ${window.initialUser?.role || "User"}
-        </p>
-    </section>
-`;
+const profile = document.createElement("section");
+const heading = document.createElement("h2");
+
+profile.className = "profile-card";
+heading.textContent = `Welcome, ${username}`;
+profile.appendChild(heading);
+
+addProfileField(
+    profile,
+    "Email",
+    window.initialUser?.email || "Unknown"
+);
+addProfileField(
+    profile,
+    "Role",
+    window.initialUser?.role || "User"
+);
+
+app.replaceChildren(profile);
 
 function prepareSettings(userSettings) {
     const settings = {};
