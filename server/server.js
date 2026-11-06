@@ -6,6 +6,18 @@ const { user, defaultSettings } = require("./data");
 const app = express();
 const PORT = 3000;
 
+const contentSecurityPolicy = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'"
+].join("; ");
+
 const allowedSettings = {
     theme: new Set(["light", "dark"]),
     language: new Set(["en", "fr"]),
@@ -18,6 +30,13 @@ const forbiddenPropertyNames = new Set([
     "prototype"
 ]);
 
+app.use((req, res, next) => {
+    res.setHeader("Content-Security-Policy", contentSecurityPolicy);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+});
+
 app.use(express.json());
 
 function toClientUser(serverUser) {
@@ -27,6 +46,15 @@ function toClientUser(serverUser) {
         email: serverUser.email,
         role: serverUser.role
     };
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
 }
 
 function validateSettings(input) {
@@ -183,51 +211,26 @@ app.get("/account", (req, res) => {
                 content="width=device-width, initial-scale=1.0"
             >
             <title>Account Settings</title>
-
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    background: #f4f4f4;
-                    margin: 0;
-                    padding: 40px;
-                }
-
-                .account-card {
-                    max-width: 600px;
-                    margin: auto;
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                }
-
-                .danger {
-                    background: #c62828;
-                    color: white;
-                    border: none;
-                    padding: 12px 20px;
-                    cursor: pointer;
-                    border-radius: 4px;
-                }
-            </style>
+            <link rel="stylesheet" href="/styles.css">
         </head>
 
-        <body>
+        <body class="account-page">
             <div class="account-card">
                 <h1>Account Settings</h1>
 
                 <p>
                     <strong>Name:</strong>
-                    ${user.name}
+                    ${escapeHtml(user.name)}
                 </p>
 
                 <p>
                     <strong>Email:</strong>
-                    ${user.email}
+                    ${escapeHtml(user.email)}
                 </p>
 
                 <p>
                     <strong>Role:</strong>
-                    ${user.role}
+                    ${escapeHtml(user.role)}
                 </p>
 
                 <button
@@ -240,14 +243,7 @@ app.get("/account", (req, res) => {
                 <p id="status"></p>
             </div>
 
-            <script>
-                document
-                    .getElementById("delete-account")
-                    .addEventListener("click", () => {
-                        document.getElementById("status").textContent =
-                            "Account deletion action triggered.";
-                    });
-            </script>
+            <script src="/account.js" defer></script>
         </body>
         </html>
     `);
